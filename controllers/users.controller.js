@@ -120,6 +120,12 @@ const getUserProducts = catchAsync(async (req, res, next) => {
 });
 
 const getUserOrders = catchAsync(async (req, res, next) => {
+  const order = await Order.findAll();
+
+  if (!order) {
+    return next(new AppError("There is no order for this user", 400));
+  }
+
   const user = await User.findAll({
     where: { status: "active" },
     include: [{ model: Order }],
