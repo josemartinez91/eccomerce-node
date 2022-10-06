@@ -106,54 +106,74 @@ const updateProductInCart = catchAsync(async (req, res, next) => {
 });
 
 const purchaseCart = catchAsync(async (req, res, next) => {
-  const cart = await Cart.findOne({ where: { status: "active" } });
+  const { sessionUser } = req;
+
+  const cart = await Cart.findOne({
+    where: { status: "active", userId: sessionUser.id },
+    include: {
+      model: ProductInCart,
+      status: "active",
+      include: { model: Product },
+    },
+  });
 
   if (!cart) {
-    return next(new AppError("You dont have an active cart", 400));
+    return next(new AppError("This user does not have a cart", 400));
   }
 
-  await cart.update({ where: { status: "purchase" } });
+  let totalPrice = 0;
+  const cartPromises = cart.productInCarts.map(async (productInCart) => {
+    await productInCart.update({ status: "purchased" });
 
-  res.status(200).json({
-    message: "success",
-    data: {
-      cart,
-    },
+    const productPrice = productInCart.product.price * productInCart.quantity;
+
+    totalPrice += productPrice;
+
+    const newQty = productInCart.product.quantity - productInCart.quantity;
+
+    await productInCart.product.update({ quantity: newQty });
+  });
+
+  await Promise.all(cartPromises);
+
+  await cart.update({ status: "purchased" });
+
+  const newOrder = await Order.create({
+    cartId: cart.id,
+    userId: sessionUser.id,
+    totalPrice,
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: { newOrder },
   });
 });
 
 const removeProductFromCart = catchAsync(async (req, res, next) => {
-  const { paramsId } = req.params;
+  const { sessionUser } = req;
+  const { productId } = req.params;
 
   const cart = await Cart.findOne({
     where: { userId: sessionUser.id, status: "active" },
   });
 
   if (!cart) {
-    return next(new AppError("You do not have a cart active.", 400));
+    return next(new AppError("This user does not have a cart", 400));
   }
 
   const productInCart = await ProductInCart.findOne({
-    where: {
-      cartId: cart.id,
-      paramsId: ProductInCart.productId,
-      status: "active",
-    },
+    where: { cartId: cart.id, productId, status: "active" },
   });
 
   if (!productInCart) {
-    return next(new AppError("This product is not in your cart", 404));
+    return next(new AppError("This product is not in your cart", 400));
   }
 
-  if (productInCart.quantity !== 0) {
-    await productInCart.update({ quantity: 0, status: "removed" });
-  }
+  await productInCart.update({ quantity: 0, status: "removed" });
 
   res.status(200).json({
     status: "success",
-    data: {
-      productInCart,
-    },
   });
 });
 

@@ -57,10 +57,10 @@ const createUser = catchAsync(async (req, res, next) => {
 });
 
 const updateUser = catchAsync(async (req, res, next) => {
-  const { name } = req.body;
+  const { username } = req.body;
   const { user } = req;
 
-  await user.update({ name });
+  await user.update({ username });
 
   res.status(200).json({
     status: "success",
@@ -111,6 +111,7 @@ const checkToken = catchAsync(async (req, res, next) => {
 
 const getUserProducts = catchAsync(async (req, res, next) => {
   const user = await User.findAll({
+    attributes: { exclude: ["password", "email", "createdAt", "updatedAt"] },
     where: { status: "active" },
     include: [{ model: Product }],
   });
