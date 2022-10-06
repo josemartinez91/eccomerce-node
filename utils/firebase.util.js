@@ -43,4 +43,27 @@ const uploadProductImgs = async (imgs, productId) => {
   }
 };
 
-module.exports = { storage, uploadProductImgs };
+const getProductImgsUrl = async products =>{
+
+    const productWithImgsPromises = products.map(async product=>{
+        
+        const productImgsPromises = product.productsImgs.map(async productImg =>{
+            const imgRef = ref(storage, productImg.imgUrl)
+            const imgUrl = await getDownloadURL(imgRef)
+
+            productImg.imgUrl = imgUrl
+
+            return productImg
+        })
+
+        const productsImgs = await Promise.all(productImgsPromises)
+
+        product.productsImgs = productsImgs
+
+        return product
+    })
+
+    return await Promise.all(productWithImgsPromises)
+}
+
+module.exports = { storage, uploadProductImgs, getProductImgsUrl };
