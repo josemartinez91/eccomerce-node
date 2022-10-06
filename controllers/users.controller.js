@@ -127,7 +127,6 @@ const getUserOrders = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findAll({
-    where: { status: "active" },
     include: [{ model: Order }],
   });
 
